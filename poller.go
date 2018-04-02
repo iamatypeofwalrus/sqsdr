@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
 
 const (
@@ -17,12 +17,12 @@ const (
 )
 
 type sqsClient interface {
-	ReceiveMessage(*sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
-	DeleteMessageBatch(*sqs.DeleteMessageBatchInput) (*sqs.DeleteMessageBatchOutput, error)
+	ReceiveMessageWithContext(aws.Context, *sqs.ReceiveMessageInput, ...request.Option) (*sqs.ReceiveMessageOutput, error)
+	DeleteMessageBatchWithContext(aws.Context, *sqs.DeleteMessageBatchInput, ...request.Option) (*sqs.DeleteMessageBatchOutput, error)
 }
 
 // NewPoller returns a Poller that defaults to long polling and receiving at most 10 messages at a time
-func NewPoller(queueURL string, client sqsiface.SQSAPI, handler Handler) *Poller {
+func NewPoller(queueURL string, client sqsClient, handler Handler) *Poller {
 	return &Poller{
 		QueueURL:            queueURL,
 		Client:              client,
@@ -38,7 +38,7 @@ func NewPoller(queueURL string, client sqsiface.SQSAPI, handler Handler) *Poller
 type Poller struct {
 	QueueURL         string
 	Handler          Handler
-	Client           sqsiface.SQSAPI
+	Client           sqsClient
 	MaxEmptyReceives int
 
 	// SQS ReceiveMessage API pass through
@@ -51,7 +51,7 @@ type Poller struct {
 func (p *Poller) Process(ctx context.Context) error {
 	numEmptyReceives := 0
 	for {
-		numProcessed, err := p.processOnce(ctx)
+		numProcessed, err := p.ProcessOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,8 @@ func (p *Poller) Process(ctx context.Context) error {
 	}
 }
 
-// ProcessOnce polls, handles, and deletes successfully processed messages from the queue one time.
+// ProcessOnce polls, handles, and deletes successfully processed messages from the queue one time. This could be handy if you're running
+// Poller in an environment with a limited runtime like AWS Lambda.
 func (p *Poller) ProcessOnce(ctx context.Context) (int, error) {
 	numProcessed := 0
 	msgs, err := p.receiveMessages(ctx)
@@ -74,7 +75,7 @@ func (p *Poller) ProcessOnce(ctx context.Context) (int, error) {
 		return numProcessed, err
 	}
 
-	processed, err := p.Handler.Handle(msgs)
+	processed, err := p.Handler.Handle(ctx, msgs)
 	numProcessed = len(processed)
 	if err != nil {
 		return numProcessed, err
