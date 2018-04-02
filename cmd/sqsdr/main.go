@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -21,10 +22,7 @@ func main() {
 			Name:    "redrive",
 			Aliases: []string{"r"},
 			Usage:   "redrive messages from source queue to a destination queue",
-			Action: func(c *cli.Context) error {
-				fmt.Println(c.Args())
-				return nil
-			},
+			Action:  redrive,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "source, s",
@@ -33,11 +31,6 @@ func main() {
 				cli.StringFlag{
 					Name:  "destination, d",
 					Usage: "destination queue name",
-				},
-				cli.IntFlag{
-					Name:  "concurrency, c",
-					Usage: "number of concurrent workers to use",
-					Value: 10,
 				},
 				cli.StringFlag{
 					Name:  "region, r",
@@ -50,10 +43,7 @@ func main() {
 			Name:    "dump",
 			Aliases: []string{"d"},
 			Usage:   "dump messages from a source queue to disk",
-			Action: func(c *cli.Context) error {
-				fmt.Println(c.Args())
-				return nil
-			},
+			Action:  dump,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "source, s",
@@ -70,10 +60,7 @@ func main() {
 			Name:    "send",
 			Aliases: []string{"s"},
 			Usage:   "send JSON messages piped through STDIN to a destination queue",
-			Action: func(c *cli.Context) error {
-				fmt.Println(c.Args())
-				return nil
-			},
+			Action:  send,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "destination, d",
@@ -88,8 +75,27 @@ func main() {
 		},
 	}
 
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "loquacious, l",
+			Usage: "log loquaciously (read: verbosely, loudly, a lot) (default: false)",
+		},
+	}
+
+	app.Before = setVerboseLogging
+
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
+}
+
+func setVerboseLogging(c *cli.Context) error {
+	if c.Bool("loquacious") {
+		log.SetOutput(os.Stdout)
+	} else {
+		log.SetOutput(ioutil.Discard)
+	}
+	return nil
 }

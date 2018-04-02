@@ -3,6 +3,7 @@ package sqsdr
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -58,6 +59,7 @@ func (p *Poller) Process(ctx context.Context) error {
 
 		if numProcessed == 0 {
 			numEmptyReceives++
+			log.Printf("received empty response %v of %v", numEmptyReceives, p.MaxEmptyReceives)
 		}
 
 		if numEmptyReceives >= p.MaxEmptyReceives {
@@ -66,13 +68,17 @@ func (p *Poller) Process(ctx context.Context) error {
 	}
 }
 
-// ProcessOnce polls, handles, and deletes successfully processed messages from the queue one time. This could be handy if you're running
-// Poller in an environment with a limited runtime like AWS Lambda.
+// ProcessOnce polls, handles, and deletes successfully processed messages from the queue one time.
+// This could be handy if you're running Poller in an environment with a limited runtime like AWS Lambda.
 func (p *Poller) ProcessOnce(ctx context.Context) (int, error) {
 	numProcessed := 0
 	msgs, err := p.receiveMessages(ctx)
 	if err != nil {
 		return numProcessed, err
+	}
+
+	if len(msgs) == 0 {
+		return 0, nil
 	}
 
 	processed, err := p.Handler.Handle(ctx, msgs)
@@ -82,7 +88,7 @@ func (p *Poller) ProcessOnce(ctx context.Context) (int, error) {
 	}
 
 	err = p.deleteMessages(ctx, processed)
-	return numProcessed, nil
+	return numProcessed, err
 }
 
 func (p *Poller) receiveMessages(ctx context.Context) ([]*sqs.Message, error) {
