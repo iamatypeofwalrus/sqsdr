@@ -3,7 +3,10 @@ package sqsdr
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -69,4 +72,58 @@ func (s *SQSSink) Sink(ctx context.Context, msgs []*sqs.Message) error {
 	}
 
 	return nil
+}
+
+// MessageOutput is a simplified version of the SQS Message that's appropriate to write to disk or
+// STDOUT.
+//
+// TODO: will have to handle the case when putting messages from STDIN to queue
+//       where the message body is JSON.
+type MessageOutput struct {
+	Body              *string                               `json:",omitempty"`
+	MessageAttributes map[string]*sqs.MessageAttributeValue `json:",omitempty"`
+	MessageId         *string
+	ReceiptHandle     *string
+}
+
+// WriterSink will write SQS Message in the MessageOutput format to the Writer with the delimiter
+// as a separator
+type WriterSink struct {
+	Writer      io.Writer
+	Passthrough Sinker
+}
+
+// Sink writes converts the SQS Message to a MessageOutput and writes the message
+// the Writer.
+func (w *WriterSink) Sink(ctx context.Context, msgs []*sqs.Message) error {
+	errors := make([]error, 0)
+	encoder := json.NewEncoder(w.Writer)
+
+	for _, msg := range msgs {
+		msgOut := MessageOutput{
+			Body:              msg.Body,
+			MessageAttributes: msg.MessageAttributes,
+			MessageId:         msg.MessageId,
+			ReceiptHandle:     msg.ReceiptHandle,
+		}
+
+		err := encoder.Encode(msgOut)
+		if err != nil {
+			log.Println("an error occurred while dumping SQS message to JSON:", err)
+			errors = append(errors, err)
+			continue
+		}
+	}
+
+	if len(errors) > 0 {
+		var buffer bytes.Buffer
+		for _, e := range errors {
+			buffer.WriteString(e.Error())
+			buffer.WriteString("\n===\n")
+		}
+
+		return fmt.Errorf("the following errors occurred while dumping SQS messages: %v", buffer.String())
+	}
+
+	return w.Passthrough.Sink(ctx, msgs)
 }

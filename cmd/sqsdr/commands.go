@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/iamatypeofwalrus/sqsdr"
 	cli "gopkg.in/urfave/cli.v1"
@@ -64,7 +65,30 @@ func redrive(c *cli.Context) error {
 }
 
 func dump(c *cli.Context) error {
-	return nil
+	src := c.String("source")
+	if src == "" {
+		return fmt.Errorf("the source flag must be present")
+	}
+
+	// Args with default values
+	region := c.String("region")
+
+	log.Println("command: dump")
+	log.Printf("\tsource: %v\n", src)
+	log.Printf("\tregion: %v\n", region)
+
+	srcClient, srcURL, err := sqsdr.CreateClientAndValidateQueue(region, src)
+	if err != nil {
+		return err
+	}
+
+	d := sqsdr.Dump{
+		SourceClient:   srcClient,
+		SourceQueueURL: srcURL,
+		Out:            os.Stdout,
+	}
+
+	return d.Dump()
 }
 
 func send(c *cli.Context) error {

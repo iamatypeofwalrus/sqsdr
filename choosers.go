@@ -35,6 +35,16 @@ func (p *PassthroughChooser) Choose(msgs []*sqs.Message) (left []*sqs.Message, r
 	return
 }
 
+// RightPassthroughChooser passes all messages to the right
+type RightPassthroughChooser struct{}
+
+// Choose always passes message to the right
+func (r *RightPassthroughChooser) Choose(msgs []*sqs.Message) (left []*sqs.Message, right []*sqs.Message) {
+	left = emptyMessages
+	right = msgs
+	return
+}
+
 // NewFilterChooser returns an initialized FilterChooser if the passed in regular expression
 // can be compiled. It returns an error otherwise.
 func NewFilterChooser(jmespath string, regex string) (*FilterChooser, error) {

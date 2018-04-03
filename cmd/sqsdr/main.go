@@ -64,23 +64,23 @@ func main() {
 				},
 			},
 		},
-		{
-			Name:    "send",
-			Aliases: []string{"s"},
-			Usage:   "send JSON messages piped through STDIN to a destination queue",
-			Action:  send,
-			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "destination, d",
-					Usage: "destination queue name",
-				},
-				cli.StringFlag{
-					Name:  "region, r",
-					Usage: "AWS region of the queues region",
-					Value: "us-east-1",
-				},
-			},
-		},
+		// {
+		// 	Name:    "send",
+		// 	Aliases: []string{"s"},
+		// 	Usage:   "send JSON messages piped through STDIN to a destination queue",
+		// 	Action:  send,
+		// 	Flags: []cli.Flag{
+		// 		cli.StringFlag{
+		// 			Name:  "destination, d",
+		// 			Usage: "destination queue name",
+		// 		},
+		// 		cli.StringFlag{
+		// 			Name:  "region, r",
+		// 			Usage: "AWS region of the queues region",
+		// 			Value: "us-east-1",
+		// 		},
+		// 	},
+		// },
 	}
 
 	app.Flags = []cli.Flag{
