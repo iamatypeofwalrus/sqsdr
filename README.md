@@ -3,7 +3,8 @@ Simple Queue Service (SQS) doctor wants to be your once stop shop for triaging a
 your SQS queues.
 
 ## CLI Usage
-``` sqsdr --help
+```
+$ sqsdr --help
 NAME:
    sqsdr - AWS Simple Queue Service (SQS) Doctor
 
@@ -19,7 +20,6 @@ DESCRIPTION:
 COMMANDS:
      redrive, r  redrive messages from source queue to a destination queue
      dump, d     dump messages from a source queue to disk
-     send, s     send JSON messages piped through STDIN to a destination queue
      help, h     Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -29,6 +29,10 @@ GLOBAL OPTIONS:
 ```
 
 ## Redrive
+`redrive` is a generic command for moving messages from one queue to another. It also exposes filtering
+functionality with the `--regex` and `--jmespath` flags allowing you to send a subset of the messages
+in your source queue to the destination queue.
+
 ### Help
 ```
 $ sqsdr redrive --help
@@ -46,7 +50,14 @@ OPTIONS:
    --region value, -r value       AWS region of the queues region (default: "us-east-1")
 ```
 ### Example
-Imagine you have a DLQ with messages that look like this with some variations:
+Imagine you have the following queues:
+
+```
+Source Queue Name: my-queue-dlq
+Destination Queue Name: my-queue
+```
+
+With messages that look like this with some variations in `my-queue-dlq`:
 
 ```
 {
@@ -58,14 +69,8 @@ Imagine you have a DLQ with messages that look like this with some variations:
   }
 }
 ```
-and you have the following queues:
 
-```
-Source Queue Name: my-queue-dlq
-Destination Queue Name: my-queue
-```
-
-If you want to redrive all the messages from the dead letter queue (DLQ) to the main queue you can run
+If you want to redrive all the messages from `my-queue-dlq` to `my-queue` you can run
 this command:
 
 ```
@@ -75,8 +80,7 @@ sqsdr redrive \
   --region us-west-2
 ```
 
-If you want to redrive all of the messages that have reviews in English you can use the following [JMESPath](http://jmespath.org/) `reviews.lang` to drive down into the `"lang"` attribute and then use the regex flag
-to specify that we want languages that match the pattern `"en-US"`.
+If you want to redrive all of the messages that have reviews in English you can use the following [JMESPath(http://jmespath.org/) expression `reviews.lang` with the `--jmespath` flag to drive down into the `"lang"` attribute in concert with the regex flag `--regex` to specify that we want languages that match the pattern `"en-US"`.
 
 ```
 sqsdr redrive \
@@ -87,9 +91,19 @@ sqsdr redrive \
   --regex "en-US" 
 ```
 
-Messages that pass the JMESPath and the Regex will be sent to the destination queue. All others are sent to a fallthrough queue that `redrive` creates at run time.
-
-Once every messages is either in the destination queue or the fallthrough queue the `redrive` command will put the messages that are in the fallthrough queue back into the source queue. Once that is completed `redrive` will remove the fallthrough queue.
+Messages that pass the JMESPath and the Regex will be sent to the destination queue.
 
 ## Dump Messages to Disk
-## Send Messages from STDIN to a Queue
+### Help
+```
+$ sqsdr dump --help
+NAME:
+   sqsdr dump - dump messages from a source queue to STDOUT
+
+USAGE:
+   sqsdr dump [command options] [arguments...]
+
+OPTIONS:
+   --source value, -s value  source queue name
+   --region value, -r value  AWS region of the queues region (default: "us-east-1")
+```
