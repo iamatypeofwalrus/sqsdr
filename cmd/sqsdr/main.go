@@ -50,7 +50,7 @@ func main() {
 		{
 			Name:    "dump",
 			Aliases: []string{"d"},
-			Usage:   "dump messages from a source queue to disk",
+			Usage:   "dump messages from a source queue to STDOUT",
 			Action:  dump,
 			Flags: []cli.Flag{
 				cli.StringFlag{
