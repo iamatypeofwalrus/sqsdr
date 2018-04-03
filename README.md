@@ -1,5 +1,5 @@
 # sqsdr
-Simple Queue Service (SQS) doctor wants to be your once stop shop for triaging and redriving messages in
+Simple Queue Service (SQS) doctor wants to be your one stop shop for triaging and redriving messages in
 your SQS queues.
 
 ## CLI Usage
