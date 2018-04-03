@@ -43,29 +43,50 @@ OPTIONS:
    --region value, -r value       AWS region of the queues region (default: "us-east-1")
 ```
 ### Example
-Imagine you have a DLQ with messages that look like this. Where "SOME_TEXT" is some text that is
-different from messages to message.
+Imagine you have a DLQ with messages that look like this with some variations:
 
 ```
-{"a": {"b": {"c": "SOME_TEXT"}}}
+{
+  "user_id": "2",
+  "book_id": 1,
+  "review": {
+    "text": "noice",
+    "lang": "en-US"
+  }
+}
 ```
-
-If you want to redrive all the messages from the Dead Letter Queue to the main queue you can run
-this command
-
-```
-sqsdr -loquacious redrive --source rdrv-int-test-dlq -destination rdrv-int-test --region us-west-2
-```
-
-What if you want to redrive a subset of those messages where "SOME_TEXT" is 42.
-
-We'll use a [JMESPath](http://jmespath.org/) to 
+and you have the following queues:
 
 ```
-sqsdr --loquacious redrive --source rdrv-int-test-dlq -destination rdrv-int-test --region us-west-2 --jmespath "a.b.c." --regex "42"
+Source Queue Name: my-queue-dlq
+Destination Queue Name: my-queue
 ```
 
-Messages that pass the JMESPath and the Regex will be sent to the destination queue. All others are sent to a fallthrough queue. Once every messages is either in the destination queue or the fallthrough queue the `redrive` command will put the messages in the fallthrough queue back in the source queue.
+If you want to redrive all the messages from the dead letter queue (DLQ) to the main queue you can run
+this command:
+
+```
+sqsdr redrive \
+  --source my-queue-dlq \
+  --destination my-queue \
+  --region us-west-2
+```
+
+If you want to redrive all of the messages that have reviews in English you can use the following [JMESPath](http://jmespath.org/) `reviews.lang` to drive down into the `"lang"` attribute and then use the regex flag
+to specify that we want languages that match the pattern `"en-US"`.
+
+```
+sqsdr redrive \
+  --source my-queue-dlq \
+  --destination my-queue \
+  --region us-west-2 \
+  --jmespath "review.lang" \
+  --regex "en-US" 
+```
+
+Messages that pass the JMESPath and the Regex will be sent to the destination queue. All others are sent to a fallthrough queue that `redrive` creates at run time.
+
+Once every messages is either in the destination queue or the fallthrough queue the `redrive` command will put the messages that are in the fallthrough queue back into the source queue. Once that is completed `redrive` will remove the fallthrough queue.
 
 ## Dump Messages to Disk
 ## Send Messages from STDIN to a Queue
