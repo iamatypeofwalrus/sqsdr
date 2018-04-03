@@ -101,7 +101,7 @@ func main() {
 
 func setVerboseLogging(c *cli.Context) error {
 	if c.Bool("loquacious") {
-		log.SetOutput(os.Stdout)
+		log.SetOutput(os.Stderr)
 	} else {
 		log.SetOutput(ioutil.Discard)
 	}
