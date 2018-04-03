@@ -19,6 +19,10 @@ func redrive(c *cli.Context) error {
 		return fmt.Errorf("the destination flag must be present")
 	}
 
+	// Optional
+	jmesPath := c.String("jmespath")
+	regex := c.String("regex")
+
 	// Args with default values
 	region := c.String("region")
 
@@ -27,16 +31,33 @@ func redrive(c *cli.Context) error {
 	log.Printf("\tdest: %v\n", dest)
 	log.Printf("\tregion: %v\n", region)
 
-	// not regex and jmespath? throw an error
+	if jmesPath != "" {
+		log.Printf("\tjmespath: %v\n", jmesPath)
+	}
 
-	r, err := sqsdr.NewRedrive(
-		src,
-		region,
-		dest,
-		region,
-	)
+	if regex != "" {
+		log.Printf("\tregex: %v\n", regex)
+	}
+
+	srcClient, srcURL, err := sqsdr.CreateClientAndValidateQueue(region, src)
 	if err != nil {
 		return err
+	}
+
+	destClient, destURL, err := sqsdr.CreateClientAndValidateQueue(region, dest)
+	if err != nil {
+		return err
+	}
+
+	r := &sqsdr.Redrive{
+		SourceClient:   srcClient,
+		SourceQueueURL: srcURL,
+
+		DestClient:   destClient,
+		DestQueueURL: destURL,
+
+		JMESPath: jmesPath,
+		Regex:    regex,
 	}
 
 	return r.Redrive()

@@ -26,11 +26,19 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "source, s",
-					Usage: "source queue name",
+					Usage: "source queue name (required)",
 				},
 				cli.StringFlag{
 					Name:  "destination, d",
-					Usage: "destination queue name",
+					Usage: "destination queue name (required)",
+				},
+				cli.StringFlag{
+					Name:  "regex, x",
+					Usage: "only message bodies that match the regex will be sent to the destination queue (optional)",
+				},
+				cli.StringFlag{
+					Name:  "jmespath, j",
+					Usage: "JMESPath expression applied to the message body. output is passed to the regular expression (optional)",
 				},
 				cli.StringFlag{
 					Name:  "region, r",

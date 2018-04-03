@@ -13,7 +13,7 @@ import (
 
 const (
 	maxEmptyReceives          = 2
-	waitTimeSeconds     int64 = 20
+	waitTimeSeconds     int64 = 5
 	maxNumberofMessages int64 = 10
 )
 

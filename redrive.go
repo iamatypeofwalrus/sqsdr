@@ -9,43 +9,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
-// NewRedrive returns an initialized Redrive struct
-func NewRedrive(sourceQueueName string, sourceRegion string, destQueueName string, destRegion string) (*Redrive, error) {
-	srcSess := session.New(&aws.Config{Region: aws.String(sourceRegion)})
-	srcClient := sqs.New(srcSess)
-	srcQueueURL, err := getQueueURL(sourceQueueName, sourceRegion, srcClient)
-	if err != nil {
-		return nil, err
-	}
-
-	destSess := session.New(&aws.Config{Region: aws.String(destRegion)})
-	destClient := sqs.New(destSess)
-	destQueueURL, err := getQueueURL(destQueueName, destRegion, destClient)
-	if err != nil {
-		return nil, err
-	}
-
-	r := &Redrive{
-		sourceClient:   srcClient,
-		sourceQueueURL: srcQueueURL,
-
-		destClient:   destClient,
-		destQueueURL: destQueueURL,
-	}
-	return r, nil
-}
-
 // Redrive is a simple strategy that moves messages from a source queue to a destination queue.
 type Redrive struct {
-	sourceClient   *sqs.SQS
-	sourceQueueURL string
+	SourceClient   *sqs.SQS
+	SourceQueueURL string
 
-	destClient   *sqs.SQS
-	destQueueURL string
+	DestClient   *sqs.SQS
+	DestQueueURL string
 
 	JMESPath string
 	Regex    string
@@ -64,15 +37,16 @@ func (r *Redrive) Redrive() error {
 }
 
 func (r *Redrive) simpleRedrive() error {
-	sink := &SQSSink{QueueURL: r.destQueueURL, Client: r.destClient}
+	log.Println("starting simple redrive")
+	sink := &SQSSink{QueueURL: r.DestQueueURL, Client: r.DestClient}
 
 	pipeline := &Pipeline{
 		Chooser:   &PassthroughChooser{},
 		LeftSink:  sink,
-		RightSink: NullSink{},
+		RightSink: NoOpSink{},
 	}
 
-	poller := NewPoller(r.sourceQueueURL, r.sourceClient, pipeline)
+	poller := NewPoller(r.SourceQueueURL, r.SourceClient, pipeline)
 
 	return poller.Process(context.Background())
 }
@@ -82,14 +56,16 @@ func (r *Redrive) filteredRedrive() error {
 	// Any message that doesn't make pass the filter will end up in this queue.
 	// At the end of the function we'll put messages in this queue back into the
 	// source queue, and then delete this queue.
-	filterQueueURL, err := createFilterSink(r.destClient, r.destQueueURL)
+	filterQueueURL, err := createFilterSink(r.SourceClient, r.SourceQueueURL)
 	if err != nil {
 		return err
 	}
 
+	log.Println("created temporary fallthrough queue:", filterQueueURL)
+
 	// Prep for the source -> destination pipeline
-	leftSink := &SQSSink{QueueURL: r.destQueueURL, Client: r.destClient}
-	rightSink := &SQSSink{QueueURL: filterQueueURL, Client: r.destClient}
+	leftSink := &SQSSink{QueueURL: r.DestQueueURL, Client: r.DestClient}
+	rightSink := &SQSSink{QueueURL: filterQueueURL, Client: r.SourceClient}
 
 	chooser, err := NewFilterChooser(r.JMESPath, r.Regex)
 	if err != nil {
@@ -105,8 +81,8 @@ func (r *Redrive) filteredRedrive() error {
 	// Run filter over all messages in the DLQ. If messages pass the filter successfully
 	// they will end up in the left sink else in the right sink (which is the SQS queue
 	// we just created)
-	log.Println("passing messages in source queue through filter")
-	poller := NewPoller(r.sourceQueueURL, r.sourceClient, pipeline)
+	log.Println("passing messages from source queue through filter to destination queue")
+	poller := NewPoller(r.SourceQueueURL, r.SourceClient, pipeline)
 	err = poller.Process(context.Background())
 	if err != nil {
 		return err
@@ -114,39 +90,39 @@ func (r *Redrive) filteredRedrive() error {
 
 	// Now we have a whole bunch of messages in the right sink and we need to put
 	// them back in the source
-	log.Println("redriving messages that ended up in the right sink back to the source")
+	log.Println("redriving messages that ended up in the temporary fallthrough queue back to the source")
 	passthrough := &PassthroughChooser{}
 	sourceSink := &SQSSink{
-		QueueURL: r.sourceQueueURL,
-		Client:   r.sourceClient,
+		QueueURL: r.SourceQueueURL,
+		Client:   r.SourceClient,
 	}
 
 	reversePipeline := &Pipeline{
 		Chooser:   passthrough,
 		LeftSink:  sourceSink,
-		RightSink: &NullSink{},
+		RightSink: &NoOpSink{},
 	}
 
-	rightPoller := NewPoller(filterQueueURL, r.destClient, reversePipeline)
+	rightPoller := NewPoller(filterQueueURL, r.SourceClient, reversePipeline)
 	err = rightPoller.Process(context.Background())
 	if err != nil {
 		return err
 	}
 
 	// Huzzah! Let's remove the queue that we created at the top of the function
-	return deleteFilterSink(r.destClient, filterQueueURL)
+	log.Println("removing temporary fallthrough queue", filterQueueURL)
+	return deleteFilterSink(r.DestClient, filterQueueURL)
 }
 
 func createFilterSink(client sqsiface.SQSAPI, queueURL string) (string, error) {
 	// this is _super_ gross. ¯\_(ツ)_/¯
 	split := strings.Split(queueURL, "/")
-	name := split[len(split)-1]
-	log.Println("creating queue with name:", name)
-	req := &sqs.CreateQueueInput{
-		QueueName: aws.String(fmt.Sprintf("sqsdr-%v", name)),
-	}
-	// TODO: we don't care if this queue already exists that means something failed
-	// and the user is running the command again.
+	queueName := split[len(split)-1]
+	name := aws.String(fmt.Sprintf("sqsdr-%v-fallthrough", queueName))
+
+	req := &sqs.CreateQueueInput{QueueName: name}
+	// NOTE: if the queue already exists SQS is more than happy to return a successful
+	//       response. Nice!
 	resp, err := client.CreateQueue(req)
 	if err != nil {
 		return "", fmt.Errorf("could not create queue for filter sink: %v", err)

@@ -87,7 +87,8 @@ func (f *FilterChooser) Choose(msgs []*sqs.Message) ([]*sqs.Message, []*sqs.Mess
 		// and let the Regex filter have at it.
 		if f.JMESPath != "" {
 			var jsonBody interface{}
-			jsonErr := json.Unmarshal([]byte(strBody), jsonBody)
+			jsonErr := json.Unmarshal([]byte(strBody), &jsonBody)
+			// TODO: handle non JSON bodies and fail quietly
 			if jsonErr != nil {
 				log.Printf("could not marshal sqs body into json: %v\n", jsonErr)
 				log.Printf("SQS Body: %v\n", strBody)

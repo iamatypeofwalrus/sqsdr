@@ -17,12 +17,12 @@ type Sinker interface {
 	Sink(context.Context, []*sqs.Message) error
 }
 
-// NullSink drops the messages on the floor. Use it only as a signal to other developers
+// NoOpSink drops the messages on the floor. Use it only as a signal to other developers
 // that your other sink is doing all of the work.
-type NullSink struct{}
+type NoOpSink struct{}
 
 // Sink does nothing with the messages and returns a nil error
-func (n NullSink) Sink(ctx context.Context, msgs []*sqs.Message) error {
+func (n NoOpSink) Sink(ctx context.Context, msgs []*sqs.Message) error {
 	return nil
 }
 
