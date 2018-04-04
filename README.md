@@ -80,7 +80,7 @@ sqsdr redrive \
   --region us-west-2
 ```
 
-If you want to redrive all of the messages that have reviews in English you can use the following [JMESPath(http://jmespath.org/) expression `reviews.lang` with the `--jmespath` flag to drive down into the `"lang"` attribute in concert with the regex flag `--regex` to specify that we want languages that match the pattern `"en-US"`.
+If you want to redrive all of the messages that have reviews in English you can use the following [JMESPath](http://jmespath.org/) expression `reviews.lang` with the `--jmespath` flag to drive down into the `"lang"` attribute in concert with the regex flag `--regex` to specify that we want languages that match the pattern `"en-US"`.
 
 ```
 sqsdr redrive \
