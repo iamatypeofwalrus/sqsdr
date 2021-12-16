@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/iamatypeofwalrus/sqsdr"
 	cli "gopkg.in/urfave/cli.v1"
 )
@@ -92,5 +94,46 @@ func dump(c *cli.Context) error {
 }
 
 func send(c *cli.Context) error {
+	// read from STDIN or a file
+	// need to take in a queue url
+	// region?
+	dest := c.String("destination")
+	if dest == "" {
+		return fmt.Errorf("the destination flag must be present")
+	}
+
+	region := c.String("region")
+
+	log.Println("command: send")
+	log.Printf("\tdestination: %v\n", dest)
+	log.Printf("\tregion: %v\n", region)
+
+	srcClient, srcURL, err := sqsdr.CreateClientAndValidateQueue(region, dest)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		rawText := scanner.Text()
+
+		input := &sqs.SendMessageInput{
+			QueueUrl:    &srcURL,
+			MessageBody: &rawText,
+		}
+
+		output, err := srcClient.SendMessage(input)
+		if err != nil {
+			log.Println("encountered error while sending message to SQS")
+			return err
+		}
+
+		log.Printf("messageId: %v\n", output.MessageId)
+
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
 	return nil
 }
