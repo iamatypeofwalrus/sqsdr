@@ -42,7 +42,7 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:  "region, r",
-					Usage: "AWS region of the queues region",
+					Usage: "AWS region of the queues region (optional)",
 					Value: "us-east-1",
 				},
 			},
@@ -59,7 +59,7 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:  "region, r",
-					Usage: "AWS region of the queues region",
+					Usage: "AWS region of the queues region (optional)",
 					Value: "us-east-1",
 				},
 			},
@@ -72,11 +72,11 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "destination, d",
-					Usage: "destination queue name",
+					Usage: "destination queue name (required)",
 				},
 				cli.StringFlag{
 					Name:  "region, r",
-					Usage: "AWS region of the queues region",
+					Usage: "AWS region of the queues region (optional)",
 					Value: "us-east-1",
 				},
 			},
@@ -88,6 +88,12 @@ func main() {
 			Name:  "loquacious, l",
 			Usage: "log loquaciously (read: verbosely, loudly, a lot) (default: false)",
 		},
+	}
+
+	app.CommandNotFound = func(c *cli.Context, command string) {
+		log.Printf("No matching command '%s'\n", command)
+		cli.ShowAppHelp(c)
+		os.Exit(1)
 	}
 
 	app.Before = setVerboseLogging
