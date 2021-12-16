@@ -38,6 +38,11 @@
 	"remoteUser": "vscode",
 	"features": {
 		"python": "latest",
-		"ruby": "latest"
+		"ruby": "latest",
+		"git": "latest",
+		"github-cli": "latest",
+		"common": {
+			"installZsh": true,
+		}
 	}
 }
