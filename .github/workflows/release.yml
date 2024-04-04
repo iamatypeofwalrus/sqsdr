@@ -1,9 +1,6 @@
 name: Release Go project
 
-on:
-  push:
-    tags:
-      - "*" # triggers only if push new tag version, like `0.8.4`
+on: [push]
 
 jobs:
   build:
@@ -16,17 +13,18 @@ jobs:
         with:
           fetch-depth: 0 # See: https://goreleaser.com/ci/actions/
 
-      - name: Set up Go 1.15
+      - name: Set up latest version of Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.15
+          go-version: '1.x'
+          check-latest: true
         id: go
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@master
+        uses: goreleaser/goreleaser-action@v2
         with:
+          distribution: goreleaser
           version: latest
           args: release --rm-dist
-          workdir: ./cmd/sqsdr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
